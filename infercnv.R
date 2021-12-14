@@ -1,45 +1,29 @@
 library(Seurat)
+library(Matrix)
+library(infercnv)
+
 
 seurat.obj <- Read10X("filtered_gene_bc_matrices/hg19/")
-
 seurat.obj <- CreateSeuratObject(counts = seurat.obj, 
                                  project = 'pbmc', 
                                  min.cells = 3, 
                                  min.features = 200)
 
+# save file two files
+## Counts file
+## Cell label files
+saveRDS(as.matrix(seurat.obj[["RNA"]]@counts), "sc.10x.counts.matrix")
+write.table(seurat.obj$Malign.type, "seurat.obj.label.txt", sep = "\t", quote = F, col.names = F)
 
-seurat.obj.infer <- WhichCells(seurat.obj.filter, expression = orig.ident == "CA1")
-
-seurat.obj.infer <- CreateSeuratObject(counts = seurat.obj.filter[,seurat.obj.infer][["RNA"]]@counts, 
-                                       project = 'CA1', 
-                                       min.cells = 3, 
-                                       min.features = 200)
-
-seurat.obj <- merge(seurat.obj, seurat.obj.infer)
-
-saveRDS(as.matrix(seurat.obj.md[["RNA"]]@counts), "sc.10x.counts.matrix")
-
-write.table(seurat.obj.md$Malign.type, "seurat.obj.label.txt", sep = "\t", quote = F, col.names = F)
-
-library(Matrix)
-
-
-library(infercnv)
-
-
-
+# load file
 matrix_counts <- readRDS("sc.10x.counts.matrix")
-
 ref <- read.delim("seurat.obj.label.txt", header = F)
-
 infercnv_obj = CreateInfercnvObject(raw_counts_matrix = matrix_counts,
                                     annotations_file="seurat.obj.label.txt",
                                     delim="\t",
                                     gene_order_file="gencode_v19_gene_pos.txt",
                                     ref_group_names="nonMalignant")
 
-rm(matrix_counts)
-gc()
 infercnv_obj = infercnv::run(infercnv_obj,
                              cutoff=0.1, # cutoff=1 works well for Smart-seq2, and cutoff=0.1 works well for 10x Genomics
                              out_dir="output_2", 
